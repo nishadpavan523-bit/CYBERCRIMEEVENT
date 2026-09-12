@@ -385,7 +385,7 @@
           renderAll();
         })
       );
-      btn.disabled = true;
+      btn.disabled = false;
     }
   }
 
