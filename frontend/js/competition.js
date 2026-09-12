@@ -375,7 +375,9 @@
         <div class="flash error">${v.missing.length} question(s) still need an answer:</div>
         <ul class="missing-list">
           ${v.missing.map((m) => `<li data-jump-case="${m.caseId}" data-jump-question="${m.questionId}">${escapeHtml(m.caseCode)} — ${escapeHtml(m.question)}</li>`).join('')}
-        </ul>`;
+        </ul>
+        <p style="font-size:.8rem; color:var(--text-dim); margin:10px 0 6px;">In a hurry? You can submit now and leave the rest unanswered — unanswered questions simply score 0, and this cannot be undone.</p>
+        <button class="btn btn-sm btn-danger" id="submitIncompleteBtn">Submit Incomplete (${v.answeredCount}/${v.totalQuestions} answered)</button>`;
       box.querySelectorAll('[data-jump-question]').forEach((el) =>
         el.addEventListener('click', () => {
           const caseIdx = state.cases.findIndex((c) => c.id === Number(el.dataset.jumpCase));
@@ -385,23 +387,31 @@
           renderAll();
         })
       );
+      const incBtn = document.getElementById('submitIncompleteBtn');
+      if (incBtn) incBtn.addEventListener('click', () => submitFinal(true));
       btn.disabled = true;
     }
   }
 
-  document.getElementById('finalSubmitBtn').addEventListener('click', async () => {
-    const v = await Api.get('/api/team/assessment/validate').catch(() => null);
-    if (!v || !v.complete) { flash(flashHost, 'Please answer every question before submitting.', 'error'); refreshValidation(); return; }
-    if (!confirm('Submit the final assessment now? You will not be able to change any answers afterward.')) return;
+  async function submitFinal(force) {
+    if (force) {
+      if (!confirm('Submit with unanswered questions left blank? Those questions will score 0, and you will NOT be able to change any answers afterward.')) return;
+    } else {
+      const v = await Api.get('/api/team/assessment/validate').catch(() => null);
+      if (!v || !v.complete) { flash(flashHost, 'Please answer every question before submitting.', 'error'); refreshValidation(); return; }
+      if (!confirm('Submit the final assessment now? You will not be able to change any answers afterward.')) return;
+    }
     try {
-      const result = await Api.post('/api/team/assessment/submit-final');
+      const result = await Api.post(`/api/team/assessment/submit-final${force ? '?force=true' : ''}`);
       state.locked = true;
       state.result = result;
       renderResult(result);
     } catch (err) {
       flash(flashHost, typeof err.message === 'string' ? err.message : 'Could not submit the assessment.', 'error');
     }
-  });
+  }
+
+  document.getElementById('finalSubmitBtn').addEventListener('click', () => submitFinal(false));
 
   // ==========================================================================
   // Result screen
@@ -421,6 +431,7 @@
         <div class="final-num">${result.finalScore}<small> / 100</small></div>
         <div style="color:var(--text-dim); margin-top:6px;">${result.percentage}%</div>
         <span class="badge ${RATING_COLOR[result.rating] || 'badge-secondary'} rating-badge">${escapeHtml(result.rating)}</span>
+        ${result.isIncomplete ? '<div class="flash error" style="margin-top:12px; text-align:left;">Submitted with unanswered questions left blank — those scored 0.</div>' : ''}
         <table class="case-score-table">
           <thead><tr><th>Case</th><th>Score</th><th>Max</th></tr></thead>
           <tbody>
