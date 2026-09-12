@@ -8,3 +8,5 @@ pydantic>=2.10
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 websockets==13.1
+psycopg2-binary==2.9.9 
+bcrypt==4.0.1
