@@ -280,14 +280,7 @@ async def submit_final(case_id: int, payload: FinalSubmit, db: Session = Depends
     ))
     tc.status = "completed"
     now = datetime.now(timezone.utc)
-    # Some DB drivers hand back a naive datetime for a "timezone-aware"
-    # column (notably SQLite always, and Postgres if the column ever ended
-    # up TIMESTAMP WITHOUT TIME ZONE) — comparing that directly against an
-    # aware `now` raises TypeError and was crashing every final submission.
-    existing_ends_at = tc.timer_ends_at
-    if existing_ends_at is not None and existing_ends_at.tzinfo is None:
-        existing_ends_at = existing_ends_at.replace(tzinfo=timezone.utc)
-    if not existing_ends_at or existing_ends_at > now:
+    if not tc.timer_ends_at or tc.timer_ends_at > now:
         tc.timer_ends_at = now
     tc.completed_at = now
     db.commit()
