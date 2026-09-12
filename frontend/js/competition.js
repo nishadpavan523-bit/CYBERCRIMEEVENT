@@ -387,9 +387,13 @@
           renderAll();
         })
       );
+<<<<<<< HEAD
       const incBtn = document.getElementById('submitIncompleteBtn');
       if (incBtn) incBtn.addEventListener('click', () => submitFinal(true));
       btn.disabled = true;
+=======
+      btn.disabled = false;
+>>>>>>> origin/main
     }
   }
 
