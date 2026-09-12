@@ -80,35 +80,48 @@
     } catch (err) { flash(flashHost, err.message, 'error'); }
   }
 
-  // ---------------- Case grid ----------------
+  // ---------------- Assessment overview ----------------
   const STATUS_LABEL = { not_started: 'Not started', in_progress: 'In progress', completed: 'Completed' };
   const STATUS_BADGE = { not_started: 'badge-secondary', in_progress: 'badge-warning', completed: 'badge-primary' };
+  const ACTION_LABEL = { not_started: 'Enter Investigation', in_progress: 'Continue Investigation', completed: 'Review Case' };
 
   async function loadCases() {
     try {
-      const { cases } = await Api.get('/api/team/cases');
+      const data = await Api.get('/api/team/assessment/state');
       const grid = document.getElementById('caseGrid');
-      grid.innerHTML = cases.map((c) => {
-        const pct = c.status === 'completed' ? 100 : c.status === 'in_progress' ? 50 : 0;
-        const actionLabel = c.status === 'not_started' ? 'Start Investigation' : c.status === 'in_progress' ? 'Continue' : 'Review Report';
+      const locked = data.locked;
+      grid.innerHTML = data.cases.map((c, i) => {
+        const total = c.questions.length;
+        const answered = c.questions.filter((q) => q.selectedOption !== null && q.selectedOption !== undefined).length;
+        const status = locked ? 'completed' : answered === 0 ? 'not_started' : answered === total ? 'completed' : 'in_progress';
+        const pct = total ? Math.round((answered / total) * 100) : 0;
         return `
         <div class="case-card">
-          <span class="status-pill badge ${STATUS_BADGE[c.status]}">${STATUS_LABEL[c.status]}</span>
-          <div class="code">${escapeHtml(c.case_code)}</div>
+          <span class="status-pill badge ${STATUS_BADGE[status]}">${STATUS_LABEL[status]}</span>
+          <div class="code">${escapeHtml(c.case_code)} · Case ${i + 1}</div>
           <h3>${escapeHtml(c.title)}</h3>
           <p>${escapeHtml(c.description || '')}</p>
           <div class="meta-row">
             <span>💰 ₹${c.financial_loss ?? '—'}</span>
-            <span>⏱ ${c.duration_minutes} min</span>
-            <span>🏆 ${c.score} pts</span>
+            <span>❓ ${total} questions</span>
+            <span>🏆 ${c.max_score} pts</span>
           </div>
           <div class="case-progress-bar"><div class="fill" style="width:${pct}%"></div></div>
-          <button class="btn btn-primary btn-block" data-open="${c.id}">${actionLabel}</button>
+          <button class="btn btn-primary btn-block" data-open="${c.id}">🔍 ${ACTION_LABEL[status]}</button>
         </div>`;
       }).join('');
       grid.querySelectorAll('[data-open]').forEach((b) =>
         b.addEventListener('click', () => { window.location.href = `/competition.html?case=${b.dataset.open}`; })
       );
+
+      const cta = document.getElementById('assessmentCta');
+      if (locked && data.result) {
+        cta.innerHTML = `<div class="flash success">Assessment submitted — Final Score: ${data.result.finalScore}/100 (${escapeHtml(data.result.rating)}).</div>
+          <a class="btn btn-primary btn-block" href="/competition.html">Review Result</a>`;
+      } else {
+        const anyAnswered = data.cases.some((c) => c.questions.some((q) => q.selectedOption !== null && q.selectedOption !== undefined));
+        cta.innerHTML = `<a class="btn btn-primary btn-block" href="/competition.html">${anyAnswered ? 'Continue Assessment' : 'Start Assessment'}</a>`;
+      }
     } catch (err) {
       flash(flashHost, err.message, 'error');
     }
