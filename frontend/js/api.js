@@ -3,7 +3,7 @@ const Api = (() => {
   const USER_KEY = 'ct_user';
 
   // Backend API server
-  const API_BASE = 'http://127.0.0.1:8000';
+  const API_BASE = 'https://cyber-5l9z.onrender.com';
 
   function getToken() {
     return localStorage.getItem(TOKEN_KEY);
