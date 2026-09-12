@@ -1,5 +1,5 @@
 (async function () {
-  const user = requireSession(); // any logged-in role
+  const user = requireSession(['admin']); // any logged-in role
   if (!user) return;
 
   document.getElementById('backLink').addEventListener('click', (e) => {

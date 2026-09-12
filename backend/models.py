@@ -145,6 +145,7 @@ class AssessmentSubmission(Base):
     final_score = Column(Integer, nullable=False)      # out of 100
     percentage = Column(Integer, nullable=False)        # 0-100
     rating = Column(String(40), nullable=False)
+    is_incomplete = Column(Boolean, nullable=False, default=False)  # True if submitted with unanswered questions
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

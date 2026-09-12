@@ -197,16 +197,17 @@ def _submission_out(s: AssessmentSubmission) -> dict:
         "finalScore": s.final_score,
         "percentage": s.percentage,
         "rating": s.rating,
+        "isIncomplete": s.is_incomplete,
         "submittedAt": s.submitted_at,
     }
 
 
 @router.post("/submit-final")
-async def submit_final(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    """The ONE Final Submission action for the whole assessment: validates
-    every question is answered, evaluates every answer against its
-    configured correct option, scores each of the 3 cases, combines and
-    normalizes to /100, and locks the assessment against resubmission."""
+async def submit_final(force: bool = False, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """The Final Submission action for the whole assessment. By default it
+    requires every question answered; pass ?force=true to submit midway
+    through the test — any unanswered question is then scored as 0 marks
+    (intentional 'submit incomplete', never automatic)."""
     already = db.query(AssessmentSubmission).filter(AssessmentSubmission.team_id == user.team_id).first()
     if already:
         raise HTTPException(status_code=400, detail="This assessment has already been submitted.")
@@ -226,7 +227,7 @@ async def submit_final(db: Session = Depends(get_db), user: CurrentUser = Depend
     }
 
     missing = [q for q in questions if q.id not in attempts]
-    if missing:
+    if missing and not force:
         raise HTTPException(
             status_code=400,
             detail={
@@ -249,14 +250,14 @@ async def submit_final(db: Session = Depends(get_db), user: CurrentUser = Depend
         case_max = 0
         for q in case_questions:
             case_max += q.marks
-            selected = attempts[q.id]
-            is_correct = selected == q.correct_option
+            selected = attempts.get(q.id)  # None if left unanswered on a forced/incomplete submit
+            is_correct = selected is not None and selected == q.correct_option
             marks_awarded = q.marks if is_correct else 0
             case_score += marks_awarded
 
             db.add(Answer(
                 team_id=user.team_id, question_id=q.id, user_id=user.id,
-                answer_text=(q.options[selected] if 0 <= selected < len(q.options) else str(selected)),
+                answer_text=(q.options[selected] if selected is not None and 0 <= selected < len(q.options) else "(unanswered)"),
                 is_correct=is_correct, marks_awarded=marks_awarded,
             ))
 
@@ -298,6 +299,7 @@ async def submit_final(db: Session = Depends(get_db), user: CurrentUser = Depend
     submission = AssessmentSubmission(
         team_id=user.team_id, case_scores=case_scores, raw_total=raw_total, raw_max=raw_max,
         hint_penalty=hint_penalty, final_score=final_score, percentage=percentage, rating=rating,
+        is_incomplete=bool(missing),
     )
     db.add(submission)
 

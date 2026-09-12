@@ -34,7 +34,10 @@ app.include_router(assessment.router)
 app.include_router(public.router)
 app.include_router(ws.router)
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+_BACKEND_DIR = Path(__file__).resolve().parent
+_CANDIDATE_1 = _BACKEND_DIR / "frontend"           # backend/frontend/
+_CANDIDATE_2 = _BACKEND_DIR.parent / "frontend"    # ../frontend (sibling of backend)
+FRONTEND_DIR = _CANDIDATE_1 if _CANDIDATE_1.exists() else _CANDIDATE_2
 
 if FRONTEND_DIR.exists():
     app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
