@@ -73,15 +73,8 @@ def get_assessment_state(db: Session = Depends(get_db), user: CurrentUser = Depe
         # Only show hints for rounds that actually have a question in this
         # rebuilt MCQ case — a case's hint set may include rounds (e.g. an
         # old free-text/forensic round) that no longer has a question.
-        # "evidence_board" is a deliberate exception: it's a general,
-        # case-wide hint about the order to work through the evidence, not
-        # tied to any single question round, so it's always kept.
         active_rounds = {q.round_name for q in c_questions}
-        GENERAL_HINT_ROUNDS = {"evidence_board"}
-        c_hints = [
-            h for h in all_hints
-            if h.case_id == c.id and (h.round_name in active_rounds or h.round_name in GENERAL_HINT_ROUNDS or not h.round_name)
-        ]
+        c_hints = [h for h in all_hints if h.case_id == c.id and (h.round_name in active_rounds or not h.round_name)]
 
         c_evidence = [e for e in all_evidence if e.case_id == c.id]
         evidence_grouped: dict = {}
