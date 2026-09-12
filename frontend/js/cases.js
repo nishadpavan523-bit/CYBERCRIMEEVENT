@@ -83,7 +83,6 @@
   // ---------------- Assessment overview ----------------
   const STATUS_LABEL = { not_started: 'Not started', in_progress: 'In progress', completed: 'Completed' };
   const STATUS_BADGE = { not_started: 'badge-secondary', in_progress: 'badge-warning', completed: 'badge-primary' };
-  const ACTION_LABEL = { not_started: 'Enter Investigation', in_progress: 'Continue Investigation', completed: 'Review Case' };
 
   async function loadCases() {
     try {
@@ -107,12 +106,8 @@
             <span>🏆 ${c.max_score} pts</span>
           </div>
           <div class="case-progress-bar"><div class="fill" style="width:${pct}%"></div></div>
-          <button class="btn btn-primary btn-block" data-open="${c.id}">🔍 ${ACTION_LABEL[status]}</button>
         </div>`;
       }).join('');
-      grid.querySelectorAll('[data-open]').forEach((b) =>
-        b.addEventListener('click', () => { window.location.href = `/competition.html?case=${b.dataset.open}`; })
-      );
 
       const cta = document.getElementById('assessmentCta');
       if (locked && data.result) {
