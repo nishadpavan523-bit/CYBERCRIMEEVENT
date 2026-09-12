@@ -73,8 +73,15 @@ def get_assessment_state(db: Session = Depends(get_db), user: CurrentUser = Depe
         # Only show hints for rounds that actually have a question in this
         # rebuilt MCQ case — a case's hint set may include rounds (e.g. an
         # old free-text/forensic round) that no longer has a question.
+        # "evidence_board" is a deliberate exception: it's a general,
+        # case-wide hint about the order to work through the evidence, not
+        # tied to any single question round, so it's always kept.
         active_rounds = {q.round_name for q in c_questions}
-        c_hints = [h for h in all_hints if h.case_id == c.id and (h.round_name in active_rounds or not h.round_name)]
+        GENERAL_HINT_ROUNDS = {"evidence_board"}
+        c_hints = [
+            h for h in all_hints
+            if h.case_id == c.id and (h.round_name in active_rounds or h.round_name in GENERAL_HINT_ROUNDS or not h.round_name)
+        ]
 
         c_evidence = [e for e in all_evidence if e.case_id == c.id]
         evidence_grouped: dict = {}
@@ -197,17 +204,16 @@ def _submission_out(s: AssessmentSubmission) -> dict:
         "finalScore": s.final_score,
         "percentage": s.percentage,
         "rating": s.rating,
-        "isIncomplete": s.is_incomplete,
         "submittedAt": s.submitted_at,
     }
 
 
 @router.post("/submit-final")
-async def submit_final(force: bool = False, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    """The Final Submission action for the whole assessment. By default it
-    requires every question answered; pass ?force=true to submit midway
-    through the test — any unanswered question is then scored as 0 marks
-    (intentional 'submit incomplete', never automatic)."""
+async def submit_final(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """The ONE Final Submission action for the whole assessment: validates
+    every question is answered, evaluates every answer against its
+    configured correct option, scores each of the 3 cases, combines and
+    normalizes to /100, and locks the assessment against resubmission."""
     already = db.query(AssessmentSubmission).filter(AssessmentSubmission.team_id == user.team_id).first()
     if already:
         raise HTTPException(status_code=400, detail="This assessment has already been submitted.")
@@ -227,7 +233,7 @@ async def submit_final(force: bool = False, db: Session = Depends(get_db), user:
     }
 
     missing = [q for q in questions if q.id not in attempts]
-    if missing and not force:
+    if missing:
         raise HTTPException(
             status_code=400,
             detail={
@@ -250,14 +256,14 @@ async def submit_final(force: bool = False, db: Session = Depends(get_db), user:
         case_max = 0
         for q in case_questions:
             case_max += q.marks
-            selected = attempts.get(q.id)  # None if left unanswered on a forced/incomplete submit
-            is_correct = selected is not None and selected == q.correct_option
+            selected = attempts[q.id]
+            is_correct = selected == q.correct_option
             marks_awarded = q.marks if is_correct else 0
             case_score += marks_awarded
 
             db.add(Answer(
                 team_id=user.team_id, question_id=q.id, user_id=user.id,
-                answer_text=(q.options[selected] if selected is not None and 0 <= selected < len(q.options) else "(unanswered)"),
+                answer_text=(q.options[selected] if 0 <= selected < len(q.options) else str(selected)),
                 is_correct=is_correct, marks_awarded=marks_awarded,
             ))
 
@@ -299,7 +305,6 @@ async def submit_final(force: bool = False, db: Session = Depends(get_db), user:
     submission = AssessmentSubmission(
         team_id=user.team_id, case_scores=case_scores, raw_total=raw_total, raw_max=raw_max,
         hint_penalty=hint_penalty, final_score=final_score, percentage=percentage, rating=rating,
-        is_incomplete=bool(missing),
     )
     db.add(submission)
 
