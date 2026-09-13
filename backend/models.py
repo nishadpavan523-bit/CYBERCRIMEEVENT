@@ -40,6 +40,12 @@ class Team(Base):
     total_score = Column(Integer, nullable=False, default=0)
     hint_penalty = Column(Integer, nullable=False, default=0)
 
+    # Server-side anchor for the one 45-minute assessment clock (shared by
+    # all 3 cases). Set the first time the team opens /assessment/state, so
+    # refreshing or navigating between questions never resets it, and the
+    # backend can enforce the same deadline the frontend displays.
+    assessment_started_at = Column(DateTime(timezone=True), nullable=True)
+
     created_by_admin = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
